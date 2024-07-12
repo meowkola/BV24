@@ -1,5 +1,0 @@
-Rename machines to something different name
-Add constraint between machines and mach
-Add scripts
-Add dzn generator?
-Test file after great merge
