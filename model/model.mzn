@@ -21,7 +21,7 @@ array[0..time, 1..op_count] of var 0..1: op_ex;
 array[0..time, 1..op_count] of var int: workers;
 
 % i - каждое время, j - каждая машина, значение - производится (1) или нет (0) операция.
-array[0..time, 1..mach_count] of var 0..1: machines;
+array[0..time, 1..mach_count] of var 0..1: machine_now_working;
 % i - каждое время, j - каждая машина, значение - на тех. обслуживании (1) или нет (0).
 array[0..time, 1..mach_count] of var 0..1: now_rest;
 % i - каждое время, j - каждая машина, значение - износ машины
@@ -101,12 +101,12 @@ constraint forall(i in 1..time, j in 1..mach_count) (
 constraint forall (t in 1..time, m in 1..mach_count)(
     if now_rest[t, m] = 1 \/ now_big_rest[t, m] = 1
     then degrade[t, m] = 0
-    else degrade[t, m] = degrade[t-1, m] + machines[t, m]
+    else degrade[t, m] = degrade[t-1, m] + machine_now_working[t, m]
     endif
 );
 % ограничение: первый день износа совпадает с тем, поработала ли машина в первый день
 constraint forall (m in 1..mach_count)(
-    degrade[0, m] = machines[0, m]
+    degrade[0, m] = machine_now_working[0, m]
 );
 % ограничение: износ машины в каждый момент не больше максимально возможного для машины
 constraint forall (t in 0..time, m in 1..mach_count)(
@@ -121,18 +121,18 @@ constraint forall (t in 1..time, m in 1..mach_count)(
 );
 % ограничение: машина не может одновременно и отдыхать, и работать
 constraint forall (t in 0..time, m in 1..mach_count)(
-    now_rest[t, m] + machines[t, m] + now_big_rest[t, m] <= 1
+    now_rest[t, m] + machine_now_working[t, m] + now_big_rest[t, m] <= 1
 );
 % ограничение: увеличение большого износа
 constraint forall (t in 1..time, m in 1..mach_count)(
     if now_big_rest[t, m]=1
     then big_degrade[t, m]=0
-    else big_degrade[t, m]=big_degrade[t-1, m]+machines[t, m]
+    else big_degrade[t, m]=big_degrade[t-1, m]+machine_now_working[t, m]
     endif
 );
 % ограничение: первый день большого износа совпадает с тем, поработала ли машина в первый день
 constraint forall (m in 1..mach_count)(
-    big_degrade[0, m]=machines[0, m]
+    big_degrade[0, m]=machine_now_working[0, m]
 );
 % ограничение: большой износ машины в каждый момент не больше максимально возможного для машины
 constraint forall (t in 0..time, m in 1..mach_count)(
