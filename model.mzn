@@ -11,9 +11,9 @@ array[0..time, 1..izd_count] of var int: add;
 % нужна ли поставка
 array[ 1..izd_count] of var int: can_add;
 % начинается ли операция
-array[0..time, 1..op_count] of var 0..100: op;
+array[0..time, 1..op_count] of var 0..mach_count: op;
 % идет ли операция
-array[0..time, 1..op_count] of var 0..100: op_ex;
+array[0..time, 1..op_count] of var 0..mach_count: op_ex;
 % сколько свободно рабочих
 array[0..time, 1..op_count] of var int: workers;
 
@@ -23,43 +23,55 @@ array[1..op_count] of int: op_len;
 array[1..op_count, 1..izd_count] of 0..100: op_in;
 % сколько ресурсов данного типа операция выдает на выход
 array[1..op_count, 1..izd_count] of int: op_out;
+% изделий изначально на складе
+array[1..izd_count] of int: izd_start;
 int: mach_count;
 array[1..mach_count, 1..op_count] of 0..1: mach;
+array[1..mach_count] of int: mach_start;
 array[1..time, 1..izd_count] of int: delivery;
 
 
+% может ли идти поставка
 constraint forall(i in 1..izd_count) (
     can_add[i] = max(0, 1 - sum(j in 1..op_count)(op_out[j, i]))
 );
-constraint forall(i in 0..time, j in 1..izd_count) (
-    add[i, j] <= can_add[j] * 1000000
+% поставка сырья не идет, если не может идти
+constraint forall(i in 0..time, j in 1..izd_count where can_add[j] == 0) (
+    add[i, j] <= can_add[j]
 );
-output [show(can_add) ++ "\n"];
 
+% количество свободных работников больше 0
 constraint forall(i in 0..time, j in 1..op_count) (
     workers[i, j] >= 0 
 );
 
+% выполняется ли операция в данный момент времени
 constraint forall(i in 0..time, j in 1..op_count) (
     op_ex[i, j] = sum(k in max(0, i - op_len[j]+1)..i)(op[k, j])
 );
 
+% в 0 день у нас 0 изделий на складе
 constraint forall(i in 1..izd_count) (
-    izd[0, i] = 0
+    izd[0, i] = izd_start[i]
 );
+% поставки и количество ресурсов на складе неотрицательны
 constraint forall(i in 0..time, j in 1..izd_count) (
     izd[i, j] >= 0 /\ add[i, j] >= 0
 );
+% изменение ресурсов на складе
 constraint forall(i in 1..time, j in 1..izd_count) (
     izd[i, j] = izd[i-1, j] + sum(k in 1..op_count where i-op_len[j] > 0)(op[i-op_len[j], j]*op_out[k, j]) - sum(k in 1..op_count) (op[i, k] * op_in[k, j]) - delivery[i, j] + add[i,j]
 );
+% поставки
 constraint forall(i in 0..time-1, j in 1..izd_count) (
     add[i, j] = sum(k in 1..op_count) (op[i+1, k] * op_in[k, j]) * can_add[j]
 );
 
+% в каждый момент времени станок может выполнять не более одной операции
 constraint forall(i in 1..time, j in 1..mach_count) (
     sum(k in 1..op_count) (op_ex[i, k]*mach[j, k]) <= 1
 );
+
 
 solve minimize sum(i in 1..time, j in 1..op_count)(izd[i, j]);
 
