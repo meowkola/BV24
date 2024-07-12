@@ -8,7 +8,7 @@ int: izd_count;
 int: mach_count;
 
 % склад
-array[0..time, 1..op_count] of var int: izd;
+array[0..time, 1..izd_count] of var int: izd;
 % начинается ли операция
 array[0..time, 1..op_count] of var 0..1: op;
 % идет ли операция
