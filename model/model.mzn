@@ -85,7 +85,7 @@ constraint forall(i in 0..time, j in 1..izd_count) (
 );
 % изменение ресурсов на складе
 constraint forall(i in 1..time, j in 1..izd_count) (
-    izd[i, j] = izd[i-1, j] + sum(k in 1..op_count where i-op_len[j] > 0)(op[i-op_len[j], j]*op_out[k, j]) - sum(k in 1..op_count) (op[i, k] * op_in[k, j]) - delivery[i, j] + add[i,j]
+    izd[i, j] = izd[i-1, j] + sum(k in 1..op_count where i-op_len[k] > 0)(op[i-op_len[k], j]*op_out[k, j]) - sum(k in 1..op_count) (op[i, k] * op_in[k, j]) - delivery[i, j] + add[i,j]
 );
 % поставки
 constraint forall(i in 0..time-1, j in 1..izd_count) (
