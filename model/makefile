@@ -1,0 +1,2 @@
+all:
+	minizinc model.mzn

@@ -99,7 +99,7 @@ constraint forall(i in 1..time, j in 1..mach_count) (
 
 % ограничение: тех. обслуживание, увеличение износа
 constraint forall (t in 1..time, m in 1..mach_count)(
-    if now_rest[t, m] = 1 \/ now_big_rest[t, m]
+    if now_rest[t, m] = 1 \/ now_big_rest[t, m] = 1
     then degrade[t, m] = 0
     else degrade[t, m] = degrade[t-1, m] + machines[t, m]
     endif
