@@ -40,7 +40,6 @@ array[1..op_count, 1..izd_count] of 0..100: op_in;
 array[1..op_count, 1..izd_count] of int: op_out;
 % изделий изначально на складе
 array[1..izd_count] of int: izd_start;
-int: mach_count;
 array[1..mach_count, 1..op_count] of 0..1: mach;
 array[1..time, 1..izd_count] of int: delivery;
 
