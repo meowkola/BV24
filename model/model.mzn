@@ -92,9 +92,9 @@ constraint forall(i in 0..time-1, j in 1..izd_count) (
     add[i, j] = sum(k in 1..op_count) (op[i+1, k] * op_in[k, j]) * can_add[j]
 );
 
-% в каждый момент времени станок может выполнять не более одной операции
+% в каждый момент времени станок может выполнять не более одной операции (это следует из того, что machines 0..1) + соответствие между mach и machines
 constraint forall(i in 1..time, j in 1..mach_count) (
-    sum(k in 1..op_count) (op_ex[i, k]*mach[j, k]) <= 1
+    sum(k in 1..op_count) (op_ex[i, k]*mach[j, k]) <= machine_now_working[i,j]
 );
 
 % ограничение: тех. обслуживание, увеличение износа
