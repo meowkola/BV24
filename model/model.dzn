@@ -48,7 +48,7 @@ delivery = array2d(1..time, 1..izd_count, [
     1, 0, 0, 0, 0
 ]);
 
-max_without_rest_duration = [2,2];
+max_without_rest_duration = [20,10];
 max_without_big_rest_duration = [50,60];
 rest_time = [1,2];
 big_rest_time = [5,10];

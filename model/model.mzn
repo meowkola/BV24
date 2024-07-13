@@ -21,7 +21,7 @@ array[0..time, 1..op_count] of var 0..1: op_ex;
 array[0..time, 1..op_count] of var int: workers;
 
 % i - каждое время, j - каждая машина, значение - производится (1) или нет (0) операция.
-array[0..time, 1..mach_count] of var 0..1: machines;
+array[0..time, 1..mach_count] of var 0..1: machine_now_working;
 % i - каждое время, j - каждая машина, значение - на тех. обслуживании (1) или нет (0).
 array[0..time, 1..mach_count] of var 0..1: now_rest;
 % i - каждое время, j - каждая машина, значение - износ машины
@@ -92,21 +92,21 @@ constraint forall(i in 0..time-1, j in 1..izd_count) (
     add[i, j] = sum(k in 1..op_count) (op[i+1, k] * op_in[k, j]) * can_add[j]
 );
 
-% в каждый момент времени станок может выполнять не более одной операции
+% в каждый момент времени станок может выполнять не более одной операции (это следует из того, что machines 0..1) + соответствие между mach и machines
 constraint forall(i in 1..time, j in 1..mach_count) (
-    sum(k in 1..op_count) (op_ex[i, k]*mach[j, k]) <= 1
+    sum(k in 1..op_count) (op_ex[i, k]*mach[j, k]) = machine_now_working[i, j]
 );
 
 % ограничение: тех. обслуживание, увеличение износа
 constraint forall (t in 1..time, m in 1..mach_count)(
     if now_rest[t, m] = 1 \/ now_big_rest[t, m] = 1
     then degrade[t, m] = 0
-    else degrade[t, m] = degrade[t-1, m] + machines[t, m]
+    else degrade[t, m] = degrade[t-1, m] + machine_now_working[t, m]
     endif
 );
 % ограничение: первый день износа совпадает с тем, поработала ли машина в первый день
 constraint forall (m in 1..mach_count)(
-    degrade[0, m] = machines[0, m]
+    degrade[0, m] = machine_now_working[0, m]
 );
 % ограничение: износ машины в каждый момент не больше максимально возможного для машины
 constraint forall (t in 0..time, m in 1..mach_count)(
@@ -121,18 +121,18 @@ constraint forall (t in 1..time, m in 1..mach_count)(
 );
 % ограничение: машина не может одновременно и отдыхать, и работать
 constraint forall (t in 0..time, m in 1..mach_count)(
-    now_rest[t, m] + machines[t, m] + now_big_rest[t, m] <= 1
+    now_rest[t, m] + machine_now_working[t, m] + now_big_rest[t, m] <= 1
 );
 % ограничение: увеличение большого износа
 constraint forall (t in 1..time, m in 1..mach_count)(
     if now_big_rest[t, m]=1
     then big_degrade[t, m]=0
-    else big_degrade[t, m]=big_degrade[t-1, m]+machines[t, m]
+    else big_degrade[t, m]=big_degrade[t-1, m]+machine_now_working[t, m]
     endif
 );
 % ограничение: первый день большого износа совпадает с тем, поработала ли машина в первый день
 constraint forall (m in 1..mach_count)(
-    big_degrade[0, m]=machines[0, m]
+    big_degrade[0, m]=machine_now_working[0, m]
 );
 % ограничение: большой износ машины в каждый момент не больше максимально возможного для машины
 constraint forall (t in 0..time, m in 1..mach_count)(
@@ -149,15 +149,36 @@ constraint forall (t in 1..time, m in 1..mach_count)(
 
 solve minimize sum(i in 1..time, j in 1..op_count)(izd[i, j]);
 
-output ["День:\t| Идет процесс:\t\t\t| Изделия:\t\t\t\t| Поставки:\n"];
-output [if j == 1 then show(i) ++ "\t| " else "" endif ++
-if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif
-else if j <= op_count+izd_count then show(izd[i, j-op_count]) ++ if j  == op_count+izd_count then "\t| " else "\t" endif
-else show(add[i, j-op_count-izd_count]) ++ if j == (op_count+izd_count*2) then "\n" else "\t" endif
-endif endif | i in 0..time, j in 1..(op_count+izd_count*2)];
-
-%output ["День:\t| Идет процесс:\t\t\t| Изделия:\n"];
-%output [if j == 1 then show(i) ++ "\t| " else "" endif ++ 
-%if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif 
-%else show(izd[i, j-op_count]) ++ if j == (op_count+izd_count) then "\n" else "\t" endif 
-%endif | i in 0..time, j in 1..(op_count+izd_count)];
+output ["День:\t| Идет процесс:\t\t\t| Изделия:\t\t\t\t| Поставки:\t\t\t\t| Машины:\n"];
+output [if j == -1 then show(i) else
+		if j == 0 \/ j == op_count \/ j == op_count+izd_count \/ j == op_count + 2*izd_count
+			then "\t|"
+			else "\t"
+		endif
+		++
+		if j < op_count then
+			show(op_ex[i, j+1])
+		else if j < op_count+izd_count then
+			show(izd[i, j+1-op_count])
+		else if j < op_count+2*izd_count then
+			show(add[i, j+1-op_count-izd_count])
+		else
+			if fix(machine_now_working[i, j+1-op_count-2*izd_count]) == 1 then
+				"Busy"
+			else if fix(now_rest[i, j+1-op_count-2*izd_count]) == 1 then
+				"Tech work"
+			else if fix(now_big_rest[i, j+1-op_count-2*izd_count]) == 1 then
+				"Big tech work"
+			endif
+			endif
+			endif
+		endif
+		endif
+		endif
+	endif
+++if j == op_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(op_count + 2*izd_count + mach_count - 1)];
+%output [if j == 1 then show(i) ++ "\t| " else "" endif ++
+%if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif
+%else if j <= op_count+izd_count then show(izd[i, j-op_count]) ++ if j  == op_count+izd_count then "\t| " else "\t" endif
+%else show(add[i, j-op_count-izd_count]) ++ if j == (op_count+izd_count*2) then "\n" else "\t" endif
+%endif endif | i in 0..time, j in 1..(op_count+izd_count*2)];
