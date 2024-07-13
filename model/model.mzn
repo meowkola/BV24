@@ -155,9 +155,3 @@ if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\
 else if j <= op_count+izd_count then show(izd[i, j-op_count]) ++ if j  == op_count+izd_count then "\t| " else "\t" endif
 else show(add[i, j-op_count-izd_count]) ++ if j == (op_count+izd_count*2) then "\n" else "\t" endif
 endif endif | i in 0..time, j in 1..(op_count+izd_count*2)];
-
-%output ["День:\t| Идет процесс:\t\t\t| Изделия:\n"];
-%output [if j == 1 then show(i) ++ "\t| " else "" endif ++ 
-%if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif 
-%else show(izd[i, j-op_count]) ++ if j == (op_count+izd_count) then "\n" else "\t" endif 
-%endif | i in 0..time, j in 1..(op_count+izd_count)];
