@@ -149,9 +149,36 @@ constraint forall (t in 1..time, m in 1..mach_count)(
 
 solve minimize sum(i in 1..time, j in 1..op_count)(izd[i, j]);
 
-output ["День:\t| Идет процесс:\t\t\t| Изделия:\t\t\t\t| Поставки:\n"];
-output [if j == 1 then show(i) ++ "\t| " else "" endif ++
-if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif
-else if j <= op_count+izd_count then show(izd[i, j-op_count]) ++ if j  == op_count+izd_count then "\t| " else "\t" endif
-else show(add[i, j-op_count-izd_count]) ++ if j == (op_count+izd_count*2) then "\n" else "\t" endif
-endif endif | i in 0..time, j in 1..(op_count+izd_count*2)];
+output ["День:\t| Идет процесс:\t\t\t| Изделия:\t\t\t\t| Поставки:\t\t\t\t| Машины:\n"];
+output [if j == -1 then show(i) else
+		if j == 0 \/ j == op_count \/ j == op_count+izd_count \/ j == op_count + 2*izd_count
+			then "\t|"
+			else "\t"
+		endif
+		++
+		if j < op_count then
+			show(op_ex[i, j+1])
+		else if j < op_count+izd_count then
+			show(izd[i, j+1-op_count])
+		else if j < op_count+2*izd_count then
+			show(add[i, j+1-op_count-izd_count])
+		else
+			if fix(machine_now_working[i, j+1-op_count-2*izd_count]) == 1 then
+				"Busy"
+			else if fix(now_rest[i, j+1-op_count-2*izd_count]) == 1 then
+				"Tech work"
+			else if fix(now_big_rest[i, j+1-op_count-2*izd_count]) == 1 then
+				"Big tech work"
+			endif
+			endif
+			endif
+		endif
+		endif
+		endif
+	endif
+++if j == op_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(op_count + 2*izd_count + mach_count - 1)];
+%output [if j == 1 then show(i) ++ "\t| " else "" endif ++
+%if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif
+%else if j <= op_count+izd_count then show(izd[i, j-op_count]) ++ if j  == op_count+izd_count then "\t| " else "\t" endif
+%else show(add[i, j-op_count-izd_count]) ++ if j == (op_count+izd_count*2) then "\n" else "\t" endif
+%endif endif | i in 0..time, j in 1..(op_count+izd_count*2)];
