@@ -155,14 +155,27 @@ constraint forall (t in 1..time, m in 1..mach_count)(
     else true
     endif
 );
+
+% ограничение: нельзя одновременно начать и не объявить операцию
+constraint forall (t in 0..time, m in 1..mach_count)(
+	machine_start[t,m]=0 \/ machine_oper[t,m]!=0
+);
+
 % ограничение: непрерывность операции: если k операция началась на m станке, то всё время исполнения (op_len [k]),её будет исполнять m станок
-constraint forall (t in 0..time,k in 1..op_count, m in 1..mach_count)(
-    if machine_start[t,m]=1
-    then forall (h in t..t+op_len[k]-1)(machine_oper[h,m]=k /\ machine_now_working[h,m]=1) /\ forall (g in t+1..t+op_len[k]-1)(machine_start[g,m]=0)
+constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
+    if machine_start[t,m]=1 /\ machine_oper[t,m]=k
+    then forall (h in t..min(time,t+op_len[k]-1))(machine_oper[h,m]=k)
     else true
     endif
 );
 
+% ограничение: если k операция началась на m станке, то всё время исполнения (op_len [k]), на станке m нельзя начинать новую операцию
+constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
+    if machine_start[t,m]=1 /\ machine_oper[t,m]=k
+    then forall (h in (t+1)..min(time,t+op_len[k]-1))(machine_start[h,m]=0)
+    else true
+    endif
+);
 
 
 solve minimize sum(i in 1..time, j in 1..op_count)(izd[i, j]);
