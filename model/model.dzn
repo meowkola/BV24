@@ -1,4 +1,4 @@
-time=20;
+time=30;
 op_count=4;
 izd_count=5;
 
@@ -17,7 +17,7 @@ op_out = array2d(1..op_count, 1..izd_count, [
     0, 0, 0, 1, 0
 ]);
 
-izd_start = [0, 0, 0, 0, 0];
+izd_start = [0, 0, 0, 0, 100];
 
 mach_count = 2;
 mach = array2d(1..mach_count, 1..op_count, [
@@ -26,6 +26,16 @@ mach = array2d(1..mach_count, 1..op_count, [
 ]);
 
 delivery = array2d(1..time, 1..izd_count, [
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
     0, 0, 0, 0, 0,
     0, 0, 0, 0, 0,
     0, 0, 0, 0, 0,
