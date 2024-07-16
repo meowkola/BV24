@@ -15,15 +15,13 @@ array[0..time, 1..izd_count] of var int: add;
 array[ 1..izd_count] of var int: can_add;
 % начинается ли операция
 array[0..time, 1..op_count] of var 0..1: op;
-% идет ли операция
-array[0..time, 1..op_count] of var 0..1: op_ex;
 
 % i - каждое время, j - каждая машина, значение - производится (1) или нет (0) операция.
 array[0..time, 1..mach_count] of var 0..1: machine_now_working;
 % i - каждое время, j - каждая машина, значение - номер производимой операции или 0, если операция не производится
-array[0..time, 1..mach_count] of var 0..1: machine_oper;
+array[0..time, 1..mach_count] of var 0..op_count: machine_oper;
 % i - каждое время, j - каждая машина, значение: над какой операцией машина начала работу или 0, если не начала. 
-array[0..time, 1..mach_count] of var 0..1: machine_start;
+array[0..time, 1..mach_count] of var 0..op_count: machine_start;
 % i - каждое время, j - каждая машина, значение - на тех. обслуживании (1) или нет (0).
 array[0..time, 1..mach_count] of var 0..1: now_rest;
 % i - каждое время, j - каждая машина, значение - износ машины
@@ -37,7 +35,7 @@ array[0..time, 1..mach_count] of var 0..time: big_degrade;
 % длительность операций
 array[1..op_count] of int: op_len;
 % сколько ресурсов данного типа надо на вход операции
-array[1..op_count, 1..izd_count] of 0..100: op_in;
+array[1..op_count, 1..izd_count] of int: op_in;
 % сколько ресурсов данного типа операция выдает на выход
 array[1..op_count, 1..izd_count] of int: op_out;
 % изделий изначально на складе
@@ -78,7 +76,7 @@ constraint forall(i in 0..time, j in 1..izd_count) (
 );
 % изменение ресурсов на складе
 constraint forall(t in 1..time, p in 1..izd_count) (
-    izd[t, p] = izd[t-1, p] + sum(m in 1..mach_count, k in 1..op_count where t-op_len[k]>=0 /\ machine_start[t-op_len[k],m]=k) (op_in[k,p]) - sum(m in 1..mach_count, k in 1..op_count where machine_start[t,m]=k) (op_in[k,p]) - delivery[t, p] + add[t,p]
+    izd[t, p] = izd[t-1, p] + sum(m in 1..mach_count, k in 1..op_count where t-op_len[k]>=0 /\ machine_start[t-op_len[k],m]=k) (op_out[k,p]) - sum(m in 1..mach_count, k in 1..op_count where machine_start[t,m]=k) (op_in[k,p]) - delivery[t, p] + add[t,p]
 );
 
 % поставки
@@ -145,14 +143,9 @@ constraint forall (t in 1..time, m in 1..mach_count)(
     endif
 );
 
-% ограничение: нельзя одновременно начать и не объявить операцию
-constraint forall (t in 0..time, m in 1..mach_count)(
-	machine_start[t,m]=0 \/ machine_oper[t,m]!=0
-);
-
 % ограничение: непрерывность операции: если k операция началась на m станке, то всё время исполнения (op_len [k]),её будет исполнять m станок
 constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
-    if machine_start[t,m]=1 /\ machine_oper[t,m]=k
+    if machine_start[t,m]=k
     then forall (h in t..min(time,t+op_len[k]-1))(machine_oper[h,m]=k)
     else true
     endif
@@ -160,7 +153,7 @@ constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
 
 % ограничение: если k операция началась на m станке, то всё время исполнения (op_len [k]), на станке m нельзя начинать новую операцию
 constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
-    if machine_start[t,m]=1 /\ machine_oper[t,m]=k
+    if machine_start[t,m]=k
     then forall (h in (t+1)..min(time,t+op_len[k]-1))(machine_start[h,m]=0)
     else true
     endif
@@ -203,8 +196,8 @@ output [if j == -1 then show(i) else
 
 % Вывод для скрипта
 output ["День: Режим_работы_станков_на_выполнение_операций: Изделия: Поставки: Машины:\n"];
-output [if j == -1 then show(i) endif
-		++
+output [if j == -1 then show(i) else
+		" "++
 		if j < mach_count then
 			show(machine_oper[i, j+1])
 		else if j < mach_count+izd_count then
@@ -226,4 +219,5 @@ output [if j == -1 then show(i) endif
 		endif
 		endif
 		endif
+	endif
 ++if j == mach_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(mach_count + 2*izd_count + mach_count - 1)];
