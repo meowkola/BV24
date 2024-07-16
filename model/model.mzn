@@ -17,8 +17,6 @@ array[ 1..izd_count] of var int: can_add;
 array[0..time, 1..op_count] of var 0..1: op;
 % идет ли операция
 array[0..time, 1..op_count] of var 0..1: op_ex;
-% сколько свободно рабочих
-array[0..time, 1..op_count] of var int: workers;
 
 % i - каждое время, j - каждая машина, значение - производится (1) или нет (0) операция.
 array[0..time, 1..mach_count] of var 0..1: machine_now_working;
@@ -70,16 +68,6 @@ constraint forall(i in 0..time, j in 1..izd_count where can_add[j] == 0) (
     add[i, j] <= can_add[j]
 );
 
-% количество свободных работников не меньше 0
-constraint forall(i in 0..time, j in 1..op_count) (
-    workers[i, j] >= 0
-);
-
-% выполняется ли операция в данный момент времени
-constraint forall(i in 0..time, j in 1..op_count) (
-    op_ex[i, j] = sum(k in max(0, i - op_len[j]+1)..i)(op[k, j])
-);
-
 % в 0 день у нас izd_start изделий на складе
 constraint forall(i in 1..izd_count) (
     izd[0, i] = izd_start[i]
@@ -89,9 +77,10 @@ constraint forall(i in 0..time, j in 1..izd_count) (
     izd[i, j] >= 0 /\ add[i, j] >= 0
 );
 % изменение ресурсов на складе
-constraint forall(i in 1..time, j in 1..izd_count) (
-    izd[i, j] = izd[i-1, j] + sum(k in 1..op_count where i-op_len[k] >= 0)(op[i-op_len[k], k]*op_out[k, j]) - sum(k in 1..op_count) (op[i, k] * op_in[k, j]) - delivery[i, j] + add[i,j]
+constraint forall(t in 1..time, p in 1..izd_count) (
+    izd[t, p] = izd[t-1, p] + sum(m in 1..mach_count, k in 1..op_count where t-op_len[k]>=0 /\ machine_start[t-op_len[k],m]=k) (op_in[k,p]) - sum(m in 1..mach_count, k in 1..op_count where machine_start[t,m]=k) (op_in[k,p]) - delivery[t, p] + add[t,p]
 );
+
 % поставки
 constraint forall(i in 0..time-1, j in 1..izd_count) (
     add[i, j] = sum(k in 1..op_count) (op[i+1, k] * op_in[k, j]) * can_add[j]
@@ -180,26 +169,29 @@ constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
 
 solve minimize sum(i in 1..time, j in 1..op_count)(izd[i, j]);
 
-output ["День:\t| Идет процесс:\t\t\t| Изделия:\t\t\t\t| Поставки:\t\t\t\t| Машины:\n"];
+% Вывод для человека
+output ["День:\t| Режим работы станков на выполнение операций:| Изделия:\t\t\t\t| Поставки:\t\t\t\t| Машины:\n"];
 output [if j == -1 then show(i) else
-		if j == 0 \/ j == op_count \/ j == op_count+izd_count \/ j == op_count + 2*izd_count
+		if j == 0 \/ j == mach_count \/ j == mach_count+izd_count \/ j == mach_count + 2*izd_count
 			then "\t|"
 			else "\t"
 		endif
 		++
-		if j < op_count then
-			show(op_ex[i, j+1])
-		else if j < op_count+izd_count then
-			show(izd[i, j+1-op_count])
-		else if j < op_count+2*izd_count then
-			show(add[i, j+1-op_count-izd_count])
+		if j < mach_count then
+			show(machine_oper[i, j+1])
+		else if j < mach_count+izd_count then
+			show(izd[i, j+1-mach_count])
+		else if j < mach_count+2*izd_count then
+			show(add[i, j+1-mach_count-izd_count])
 		else
-			if fix(machine_now_working[i, j+1-op_count-2*izd_count]) == 1 then
+			if fix(machine_now_working[i, j+1-mach_count-2*izd_count]) == 1 then
 				"Busy"
-			else if fix(now_rest[i, j+1-op_count-2*izd_count]) == 1 then
+			else if fix(now_rest[i, j+1-mach_count-2*izd_count]) == 1 then
 				"Tech work"
-			else if fix(now_big_rest[i, j+1-op_count-2*izd_count]) == 1 then
+			else if fix(now_big_rest[i, j+1-mach_count-2*izd_count]) == 1 then
 				"Big tech work"
+			else
+				"Idle"
 			endif
 			endif
 			endif
@@ -207,4 +199,31 @@ output [if j == -1 then show(i) else
 		endif
 		endif
 	endif
-++if j == op_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(op_count + 2*izd_count + mach_count - 1)];
+++if j == mach_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(mach_count + 2*izd_count + mach_count - 1)];
+
+% Вывод для скрипта
+output ["День: Режим_работы_станков_на_выполнение_операций: Изделия: Поставки: Машины:\n"];
+output [if j == -1 then show(i) endif
+		++
+		if j < mach_count then
+			show(machine_oper[i, j+1])
+		else if j < mach_count+izd_count then
+			show(izd[i, j+1-mach_count])
+		else if j < mach_count+2*izd_count then
+			show(add[i, j+1-mach_count-izd_count])
+		else
+			if fix(machine_now_working[i, j+1-mach_count-2*izd_count]) == 1 then
+				"Busy"
+			else if fix(now_rest[i, j+1-mach_count-2*izd_count]) == 1 then
+				"Tech_work"
+			else if fix(now_big_rest[i, j+1-mach_count-2*izd_count]) == 1 then
+				"Big_tech_work"
+			else
+				"Idle"
+			endif
+			endif
+			endif
+		endif
+		endif
+		endif
+++if j == mach_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(mach_count + 2*izd_count + mach_count - 1)];
