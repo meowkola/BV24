@@ -22,6 +22,10 @@ array[0..time, 1..op_count] of var int: workers;
 
 % i - каждое время, j - каждая машина, значение - производится (1) или нет (0) операция.
 array[0..time, 1..mach_count] of var 0..1: machine_now_working;
+% i - каждое время, j - каждая машина, значение - номер производимой операции или 0, если операция не производится
+array[0..time, 1..mach_count] of var 0..1: machine_oper;
+% i - каждое время, j - каждая машина, значение: верно ли что машина начала работу. 
+array[0..time, 1..mach_count] of var 0..1: machine_start;
 % i - каждое время, j - каждая машина, значение - на тех. обслуживании (1) или нет (0).
 array[0..time, 1..mach_count] of var 0..1: now_rest;
 % i - каждое время, j - каждая машина, значение - износ машины
@@ -40,7 +44,8 @@ array[1..op_count, 1..izd_count] of 0..100: op_in;
 array[1..op_count, 1..izd_count] of int: op_out;
 % изделий изначально на складе
 array[1..izd_count] of int: izd_start;
-array[1..mach_count, 1..op_count] of 0..1: mach;
+% соответствие, какой станок предназначен для какой операции (1 - станок может выполнять данную операцию, 0 - не может)
+array[1..mach_count, 1..op_count] of int: mach;
 array[1..time, 1..izd_count] of int: delivery;
 
 
@@ -92,9 +97,14 @@ constraint forall(i in 0..time-1, j in 1..izd_count) (
     add[i, j] = sum(k in 1..op_count) (op[i+1, k] * op_in[k, j]) * can_add[j]
 );
 
-% в каждый момент времени станок может выполнять не более одной операции (это следует из того, что machines 0..1) + соответствие между mach и machines
-constraint forall(i in 1..time, j in 1..mach_count) (
-    sum(k in 1..op_count) (op_ex[i, k]*mach[j, k]) = machine_now_working[i, j]
+% станок может производить только те операции, которые соответствуют его предназначению
+constraint forall (t in 0..time, m in 1..mach_count, k in 1..op_count)(
+    machine_oper[t,m]!=k \/ mach[m,k]=1
+);
+
+% соответствие между machine_now_working и machine_oper (проведения опреация и работы станка)
+constraint forall (t in 0..time, m in 1..mach_count)(
+    ((machine_oper[t,m]!=0)/\(machine_now_working[t,m]=1))\/((machine_oper[t,m]=0)/\(machine_now_working[t,m]=0))
 );
 
 % ограничение: тех. обслуживание, увеличение износа
@@ -138,13 +148,21 @@ constraint forall (m in 1..mach_count)(
 constraint forall (t in 0..time, m in 1..mach_count)(
     big_degrade[t, m] <= max_without_big_rest_duration[m]
 );
-% ограничение: если машина сегодня big-отдыхает, а вчера - нет, то она должна big-отдыхать еще rest_time-1
+% ограничение: если машина сегодня big-отдыхает, а вчера - нет, то она должна big-отдыхать еще big_rest_time-1
 constraint forall (t in 1..time, m in 1..mach_count)(
     if now_big_rest[t, m] = 1 /\ now_big_rest[t-1, m] = 0
     then forall (h in t..min(t+big_rest_time[m]-1,time))(now_big_rest[h, m]=1)
     else true
     endif
 );
+% TODO: add this: ограничение: непрерывность операции: если k операция началась на m станке, то всё время исполнения (op_len [k]),её будет исполнять m станок
+constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
+    if op[t, k]=1 /\ machine_start[t,m]=1
+    then forall (h in t..t+op_len[k]-1)(machine_oper[h,m]=k)
+    else true
+    endif
+);
+
 
 
 solve minimize sum(i in 1..time, j in 1..op_count)(izd[i, j]);
