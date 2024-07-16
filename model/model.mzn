@@ -24,7 +24,7 @@ array[0..time, 1..op_count] of var int: workers;
 array[0..time, 1..mach_count] of var 0..1: machine_now_working;
 % i - каждое время, j - каждая машина, значение - номер производимой операции или 0, если операция не производится
 array[0..time, 1..mach_count] of var 0..1: machine_oper;
-% i - каждое время, j - каждая машина, значение: верно ли что машина начала работу. 
+% i - каждое время, j - каждая машина, значение: над какой операцией машина начала работу или 0, если не начала. 
 array[0..time, 1..mach_count] of var 0..1: machine_start;
 % i - каждое время, j - каждая машина, значение - на тех. обслуживании (1) или нет (0).
 array[0..time, 1..mach_count] of var 0..1: now_rest;
@@ -102,7 +102,7 @@ constraint forall (t in 0..time, m in 1..mach_count, k in 1..op_count)(
     machine_oper[t,m]!=k \/ mach[m,k]=1
 );
 
-% соответствие между machine_now_working и machine_oper (проведения опреация и работы станка)
+% соответствие между machine_now_working и machine_oper (проведения операции и работы станка)
 constraint forall (t in 0..time, m in 1..mach_count)(
     ((machine_oper[t,m]!=0)/\(machine_now_working[t,m]=1))\/((machine_oper[t,m]=0)/\(machine_now_working[t,m]=0))
 );
@@ -155,10 +155,10 @@ constraint forall (t in 1..time, m in 1..mach_count)(
     else true
     endif
 );
-% TODO: add this: ограничение: непрерывность операции: если k операция началась на m станке, то всё время исполнения (op_len [k]),её будет исполнять m станок
-constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
-    if op[t, k]=1 /\ machine_start[t,m]=1
-    then forall (h in t..t+op_len[k]-1)(machine_oper[h,m]=k)
+% ограничение: непрерывность операции: если k операция началась на m станке, то всё время исполнения (op_len [k]),её будет исполнять m станок
+constraint forall (t in 0..time,k in 1..op_count, m in 1..mach_count)(
+    if machine_start[t,m]=1
+    then forall (h in t..t+op_len[k]-1)(machine_oper[h,m]=k /\ machine_now_working[h,m]=1) /\ forall (g in t+1..t+op_len[k]-1)(machine_start[g,m]=0)
     else true
     endif
 );
@@ -195,8 +195,3 @@ output [if j == -1 then show(i) else
 		endif
 	endif
 ++if j == op_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(op_count + 2*izd_count + mach_count - 1)];
-%output [if j == 1 then show(i) ++ "\t| " else "" endif ++
-%if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif
-%else if j <= op_count+izd_count then show(izd[i, j-op_count]) ++ if j  == op_count+izd_count then "\t| " else "\t" endif
-%else show(add[i, j-op_count-izd_count]) ++ if j == (op_count+izd_count*2) then "\n" else "\t" endif
-%endif endif | i in 0..time, j in 1..(op_count+izd_count*2)];
