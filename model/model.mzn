@@ -6,15 +6,18 @@ int: time;
 int: op_count;
 int: izd_count;
 int: mach_count;
+int: size_of_stock;
 
 % склад
 array[0..time, 1..izd_count] of var int: izd;
 % поставка
 array[0..time, 1..izd_count] of var int: add;
-% нужна ли поставка
+% является ли предмет завозимым сырьём
 array[ 1..izd_count] of var int: can_add;
 % начинается ли операция
 array[0..time, 1..op_count] of var 0..1: op;
+% размер изделия
+array[1..izd_count] of int: izd_size;
 
 % i - каждое время, j - каждая машина, значение - производится (1) или нет (0) операция.
 array[0..time, 1..mach_count] of var 0..1: machine_now_working;
@@ -42,6 +45,7 @@ array[1..op_count, 1..izd_count] of int: op_out;
 array[1..izd_count] of int: izd_start;
 % соответствие, какой станок предназначен для какой операции (1 - станок может выполнять данную операцию, 0 - не может)
 array[1..mach_count, 1..op_count] of int: mach;
+% отгрузка готовой продукции
 array[1..time, 1..izd_count] of int: delivery;
 
 
@@ -66,14 +70,20 @@ constraint forall(i in 0..time, j in 1..izd_count where can_add[j] == 0) (
     add[i, j] <= can_add[j]
 );
 
-% в 0 день у нас izd_start изделий на складе
+% в 0 день на складе izd_start изделий + поставка в 0 день - отгрузка в 0 день - расход на запуск операций в 0 день
 constraint forall(i in 1..izd_count) (
-    izd[0, i] = izd_start[i]
+    izd[0, i] = izd_start[i]- sum(m in 1..mach_count, k in 1..op_count where machine_start[0,m]=k) (op_in[k,i]) - delivery[0, i] + add[0,i]
 );
 % поставки и количество ресурсов на складе неотрицательны
 constraint forall(i in 0..time, j in 1..izd_count) (
     izd[i, j] >= 0 /\ add[i, j] >= 0
 );
+
+% размер ресурсов на складе не превышает размер склада
+constraint forall(i in 0..time) (
+    sum(j in 1..izd_count) (izd[i, j]*izd_size[j]) <= size_of_stock
+);
+
 % изменение ресурсов на складе
 constraint forall(t in 1..time, p in 1..izd_count) (
     izd[t, p] = izd[t-1, p] + sum(m in 1..mach_count, k in 1..op_count where t-op_len[k]>=0 /\ machine_start[t-op_len[k],m]=k) (op_out[k,p]) - sum(m in 1..mach_count, k in 1..op_count where machine_start[t,m]=k) (op_in[k,p]) - delivery[t, p] + add[t,p]
