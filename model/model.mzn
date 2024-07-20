@@ -14,8 +14,6 @@ array[0..time, 1..izd_count] of var int: izd;
 array[0..time, 1..izd_count] of var int: add;
 % является ли предмет завозимым сырьём
 array[ 1..izd_count] of var int: can_add;
-% начинается ли операция
-array[0..time, 1..op_count] of var 0..1: op;
 % размер изделия
 array[1..izd_count] of int: izd_size;
 
