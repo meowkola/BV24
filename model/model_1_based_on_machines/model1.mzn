@@ -1,6 +1,5 @@
 include "model.dzn";
 
-int: max_int = 1000;
 int: time;
 
 int: op_count;
@@ -27,11 +26,7 @@ array[0..time, 1..mach_count] of var 0..op_count: machine_start;
 array[0..time, 1..mach_count] of var 0..1: now_rest;
 % i - каждое время, j - каждая машина, значение - износ машины
 array[0..time, 1..mach_count] of var 0..time: degrade;
-% Аналогично для big_rest
-% i - каждое время, j - каждая машина, значение - на большом тех. обслуживании (1) или нет (0).
-array[0..time, 1..mach_count] of var 0..1: now_big_rest;
-% i - каждое время, j - каждая машина, значение - большой износ машины
-array[0..time, 1..mach_count] of var 0..time: big_degrade;
+
 
 % длительность операций
 array[1..op_count] of int: op_len;
@@ -44,18 +39,15 @@ array[1..izd_count] of int: izd_start;
 % соответствие, какой станок предназначен для какой операции (1 - станок может выполнять данную операцию, 0 - не может)
 array[1..mach_count, 1..op_count] of int: mach;
 % отгрузка готовой продукции
-array[1..time, 1..izd_count] of int: delivery;
+array[0..time, 1..izd_count] of int: delivery;
 
 
 %i - каждая машина, значение - максимально возможный износ машины
 array[1..mach_count] of int: max_without_rest_duration;
 %i - каждая машина, значение - время, необходимое на тех. обслуживании каждой машины
 array[1..mach_count] of int: rest_time;
-% Аналогичные значения для big_rest
-%i - каждая машина, значение - маскимально возможный big-износ каждой машины
-array[1..mach_count] of int: max_without_big_rest_duration;
-%i - каждая машина, значение - время, необходимое на большое тех. обслуживание каждой машины
-array[1..mach_count] of int: big_rest_time;
+% график запланированного большого тех. обслуживания
+array[0..time, 1..mach_count] of int: now_big_rest;
 
 
 
@@ -124,28 +116,6 @@ constraint forall (t in 1..time, m in 1..mach_count)(
 constraint forall (t in 0..time, m in 1..mach_count)(
     now_rest[t, m] + machine_now_working[t, m] + now_big_rest[t, m] <= 1
 );
-% ограничение: увеличение большого износа
-constraint forall (t in 1..time, m in 1..mach_count)(
-    if now_big_rest[t, m]=1
-    then big_degrade[t, m]=0
-    else big_degrade[t, m]=big_degrade[t-1, m]+machine_now_working[t, m]
-    endif
-);
-% ограничение: первый день большого износа совпадает с тем, поработала ли машина в первый день
-constraint forall (m in 1..mach_count)(
-    big_degrade[0, m]=machine_now_working[0, m]
-);
-% ограничение: большой износ машины в каждый момент не больше максимально возможного для машины
-constraint forall (t in 0..time, m in 1..mach_count)(
-    big_degrade[t, m] <= max_without_big_rest_duration[m]
-);
-% ограничение: если машина сегодня big-отдыхает, а вчера - нет, то она должна big-отдыхать еще big_rest_time-1
-constraint forall (t in 1..time, m in 1..mach_count)(
-    if now_big_rest[t, m] = 1 /\ now_big_rest[t-1, m] = 0
-    then forall (h in t..min(t+big_rest_time[m]-1,time))(now_big_rest[h, m]=1)
-    else true
-    endif
-);
 
 % ограничение: непрерывность операции: если k операция началась на m станке, то всё время исполнения (op_len [k]),её будет исполнять m станок
 constraint forall (t in 0..time, k in 1..op_count, m in 1..mach_count)(
@@ -199,29 +169,5 @@ output [if j == -1 then show(i) else
 ++if j == mach_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(mach_count + 2*izd_count + mach_count - 1)];
 
 % Вывод для скрипта
-output ["День: Режим_работы_станков_на_выполнение_операций: Изделия: Поставки: Машины:\n"];
-output [if j == -1 then show(i) else
-		" "++
-		if j < mach_count then
-			show(machine_oper[i, j+1])
-		else if j < mach_count+izd_count then
-			show(izd[i, j+1-mach_count])
-		else if j < mach_count+2*izd_count then
-			show(add[i, j+1-mach_count-izd_count])
-		else
-			if fix(machine_now_working[i, j+1-mach_count-2*izd_count]) == 1 then
-				"Busy"
-			else if fix(now_rest[i, j+1-mach_count-2*izd_count]) == 1 then
-				"Tech_work"
-			else if fix(now_big_rest[i, j+1-mach_count-2*izd_count]) == 1 then
-				"Big_tech_work"
-			else
-				"Idle"
-			endif
-			endif
-			endif
-		endif
-		endif
-		endif
-	endif
-++if j == mach_count + 2*izd_count + mach_count - 1 then "\n" endif | i in 0..time, j in -1..(mach_count + 2*izd_count + mach_count - 1)];
+output ["\n\n"];
+output [show(machine_oper[t,m]) ++ (if m==mach_count then "\n" else " ") | t in 0..time, m in 1..mach_count]
