@@ -1,4 +1,4 @@
-include "model.dzn";
+include "model1.dzn";
 
 int: time;
 
@@ -170,4 +170,5 @@ output [if j == -1 then show(i) else
 
 % Вывод для скрипта
 output ["\n\n"];
-output [show(machine_oper[t,m]) ++ (if m==mach_count then "\n" else " ") | t in 0..time, m in 1..mach_count]
+output [show (time)++" "++show(mach_count)++"\n"];
+output [show(machine_oper[t,m]) ++ (if m==mach_count then "\n" else " " endif) | t in 0..time, m in 1..mach_count]
