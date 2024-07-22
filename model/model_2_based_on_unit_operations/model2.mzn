@@ -55,7 +55,7 @@ array[1..mach_count] of int: max_damage;
 % длина то
 array[1..mach_count] of int: mt_len;
 % расписание поставок
-array[1..time] of 0..1: doing_add;
+array[0..time] of 0..1: doing_add;
 
 
 
@@ -93,7 +93,7 @@ constraint forall(i in 0..time) (
 );
 % изменение ресурсов на складе
 constraint forall(i in 1..time, j in 1..izd_count) (
-    izd[i, j] = izd[i-1, j] + sum(k in 1..op_count where i-op_len[j] > 0)(op[i-op_len[j], j]*op_out[k, j]) - sum(k in 1..op_count) (op[i, k] * op_in[k, j]) - delivery[i, j] + add[i,j]
+    izd[i, j] = izd[i-1, j] + sum(k in 1..op_count where i-op_len[k] > 0)(op[i-op_len[k], k]*op_out[k, j]) - sum(k in 1..op_count) (op[i, k] * op_in[k, j]) - delivery[i, j] + add[i,j]
 );
 % поставки
 constraint forall(i in 0..time-1, j in 1..izd_count) (
@@ -115,7 +115,10 @@ constraint forall(i in 1..time, j in 1..mach_count) (
 );
 
 constraint forall(i in 1..time, j in 1..mach_count) (
-    damage[i, j] = damage[i-1, j] + work[i, j] - max_damage[j]*mt[i, j] /\ damage[i, j] <= max_damage[j]
+    damage[i, j] = damage[i-1, j] + work[i, j] - 
+    (damage[i-1, j])*mt[i, j]
+%     max_damage[j]*mt[i, j]
+      /\ damage[i, j] <= max_damage[j]
 );
 
 constraint forall(i in 0..time, j in 1..mach_count where i - mt_len[j]+1 >= 0) (
@@ -127,9 +130,11 @@ constraint forall(i in 0..time, j in 1..mach_count where i - mt_len[j]+1 >= 0) (
 
 solve minimize sum(i in 1..time, j in 1..izd_count)(izd[i, j]);
 
-output ["День:\t| Идет процесс:\t\t\t| Изделия:\t\t\t\t| Поставки:\n"];
+output ["День:\t| Идет процесс:\t\t\t| Изделия:\t\t\t\t| Поставки:\t\t\t\t| Износ станка:\t|То станка:\n"];
 output [if j == 1 then show(i) ++ "\t| " else "" endif ++
-if j <= op_count then show(op_ex[i, j]) ++ if j  == op_count then "\t| " else "\t" endif
-else if j <= op_count+izd_count then show(izd[i, j-op_count]) ++ if j  == op_count+izd_count then "\t| " else "\t" endif
-else show(add[i, j-op_count-izd_count]) ++ if j == (op_count+izd_count*2) then "\n" else "\t" endif
-endif endif | i in 0..time, j in 1..(op_count+izd_count*2)];
+     if j <= op_count                           then show(op_ex[i, j])                                ++ if j == op_count                               then "\t| " else "\t" endif
+else if j <= op_count+izd_count                 then show(izd[i, j-op_count])                         ++ if j == op_count+izd_count                     then "\t| " else "\t" endif
+else if j <= op_count+izd_count*2               then show(add[i, j-op_count-izd_count])               ++ if j == (op_count+izd_count*2)                 then "\t| " else "\t" endif
+else if j <= op_count+izd_count*2+mach_count    then show(damage[i, j-op_count-izd_count*2])          ++ if j == (op_count+izd_count*2+mach_count)      then "\t| " else "\t" endif
+else                                            show(mt_ex[i, j-op_count-izd_count*2-mach_count])     ++ if j == (op_count+izd_count*2+mach_count*2)    then "\n" else "\t" endif
+endif endif endif endif | i in 0..time, j in 1..(op_count + izd_count*2 + mach_count*2)];
